@@ -14,7 +14,7 @@
 Summary: A widely used Mail Transport Agent (MTA)
 Name: sendmail
 Version: 8.14.4
-Release: 9%{?dist}
+Release: 9%{?dist}.1
 License: Sendmail
 Group: System Environment/Daemons
 URL: http://www.sendmail.org/
@@ -53,6 +53,7 @@ Patch23: sendmail-8.14.4-sasl2-in-etc.patch
 Patch24: sendmail-8.14.4-ldap-fix.patch
 Patch25: sendmail-8.14.4-ldap-routing-fix.patch
 Patch26: sendmail-8.14.4-client-port.patch
+Patch27: sendmail-8.14.4-MIME-NUL-characters-fix.patch
 Buildroot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: tcp_wrappers-devel
 BuildRequires: db4-devel
@@ -169,6 +170,7 @@ cp devtools/M4/UNIX/{,shared}library.m4
 %patch24 -p1 -b .ldap-fix
 %patch25 -p1 -b .ldap-routing-fix
 %patch26 -p1 -b .client-port
+%patch27 -p1 -b .MIME-NUL-characters-fix
 
 for f in RELEASE_NOTES contrib/etrn.0; do
 	iconv -f iso8859-1 -t utf8 -o ${f}{_,} &&
@@ -587,6 +589,10 @@ exit 0
 
 
 %changelog
+* Thu May 26 2016 Jaroslav Škarvada <jskarvad@redhat.com> - 8.14.4-9.1
+- fixed NUL characters processing
+  resolves: rhbz#1340366
+
 * Wed Feb  4 2015 Jaroslav Škarvada <jskarvad@redhat.com> - 8.14.4-9
 - fixed MAXHOSTNAMELEN for FQDN
   resolves: rhbz#640234
