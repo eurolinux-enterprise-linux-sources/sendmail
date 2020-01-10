@@ -1,0 +1,36 @@
+diff -up sendmail-8.14.4/libsm/ldap.c.orig sendmail-8.14.4/libsm/ldap.c
+--- sendmail-8.14.4/libsm/ldap.c.orig	2009-06-20 00:02:26.000000000 +0200
++++ sendmail-8.14.4/libsm/ldap.c	2012-07-04 11:26:16.583960000 +0200
+@@ -1098,10 +1098,8 @@ sm_ldap_results(lmap, msgid, flags, deli
+ 
+ 	if (ret == 0)
+ 		save_errno = ETIMEDOUT;
+-	else
++	else if (ret == LDAP_RES_SEARCH_RESULT)
+ 	{
+-		int rc;
+-
+ 		/*
+ 		**  We may have gotten an LDAP_RES_SEARCH_RESULT response
+ 		**  with an error inside it, so we have to extract that
+@@ -1109,10 +1107,16 @@ sm_ldap_results(lmap, msgid, flags, deli
+ 		**  to an LDAP proxy whose backend has gone down.
+ 		*/
+ 
+-		save_errno = ldap_parse_result(lmap->ldap_ld, lmap->ldap_res,
+-				       &rc, NULL, NULL, NULL, NULL, 0);
+-		if (save_errno == LDAP_SUCCESS)
+-			save_errno = rc;
++		if (lmap->ldap_res == NULL)
++			save_errno = LDAP_UNAVAILABLE;
++		else
++		{
++			int rc;
++			save_errno = ldap_parse_result(lmap->ldap_ld, lmap->ldap_res,
++					&rc, NULL, NULL, NULL, NULL, 0);
++			if (save_errno == LDAP_SUCCESS)
++				save_errno = rc;
++		}
+ 	}
+ 	if (save_errno != LDAP_SUCCESS)
+ 	{

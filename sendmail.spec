@@ -14,7 +14,7 @@
 Summary: A widely used Mail Transport Agent (MTA)
 Name: sendmail
 Version: 8.14.4
-Release: 8%{?dist}
+Release: 9%{?dist}
 License: Sendmail
 Group: System Environment/Daemons
 URL: http://www.sendmail.org/
@@ -47,9 +47,12 @@ Patch15: sendmail-8.14.1-noversion.patch
 Patch16: sendmail-8.13.1-localdomain.patch
 Patch17: sendmail-8.14.3-sharedmilter.patch
 Patch18: sendmail-8.14.4-switchfile.patch
-Patch20: sendmail-8.14.3-milterfdleaks.patch
+Patch20: sendmail-8.14.4-milterfdleaks.patch
 Patch21: sendmail-8.14.3-ipv6-bad-helo.patch
 Patch23: sendmail-8.14.4-sasl2-in-etc.patch
+Patch24: sendmail-8.14.4-ldap-fix.patch
+Patch25: sendmail-8.14.4-ldap-routing-fix.patch
+Patch26: sendmail-8.14.4-client-port.patch
 Buildroot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: tcp_wrappers-devel
 BuildRequires: db4-devel
@@ -163,6 +166,9 @@ cp devtools/M4/UNIX/{,shared}library.m4
 %patch20 -p1 -b .milterfdleaks
 %patch21 -p1 -b .ipv6-bad-helo
 %patch23 -p1 -b .sasl2-in-etc
+%patch24 -p1 -b .ldap-fix
+%patch25 -p1 -b .ldap-routing-fix
+%patch26 -p1 -b .client-port
 
 for f in RELEASE_NOTES contrib/etrn.0; do
 	iconv -f iso8859-1 -t utf8 -o ${f}{_,} &&
@@ -174,7 +180,7 @@ done
 cat > redhat.config.m4 << EOF
 define(\`confMAPDEF', \`-DNEWDB -DNIS -DHESIOD -DMAP_REGEX -DSOCKETMAP -DNAMED_BIND=1')
 define(\`confOPTIMIZE', \`\`\`\`${RPM_OPT_FLAGS}'''')
-define(\`confENVDEF', \`-I%{_includedir}/db4 -I/usr/kerberos/include -Wall -DXDEBUG=0 -DTCPWRAPPERS -DNETINET6 -DHES_GETMAILHOST -DUSE_VENDOR_CF_PATH=1 -D_FFR_TLS_1')
+define(\`confENVDEF', \`-I%{_includedir}/db4 -I/usr/kerberos/include -Wall -DXDEBUG=0 -DTCPWRAPPERS -DNETINET6 -DHES_GETMAILHOST -DUSE_VENDOR_CF_PATH=1 -D_FFR_TLS_1 -D_FFR_LINUX_MHNL')
 define(\`confLIBDIRS', \`-L/usr/kerberos/%{_lib}')
 define(\`confLIBS', \`-lnsl -lwrap -lhesiod -lcrypt -ldb -lresolv')
 define(\`confMANOWN', \`root')
@@ -581,6 +587,19 @@ exit 0
 
 
 %changelog
+* Wed Feb  4 2015 Jaroslav Škarvada <jskarvad@redhat.com> - 8.14.4-9
+- fixed MAXHOSTNAMELEN for FQDN
+  resolves: rhbz#640234
+- fixed assertion if server connection is lost while making LDAP query
+  resolves: rhbz#837007
+- fixed milterfdleaks patch to check socket before using fcntl on it
+  resolves: rhbz#845821
+- fixed ldap_routing macro
+  resolves: rhbz#890227
+- properly set {client_port} value on little endian machines,
+  patch by Kelsey Cumminngs <kgc@corp.sonic.net>
+  resolves: rhbz#1106852
+
 * Thu Jun 17 2010 Jaroslav Škarvada <jskarvad@redhat.com> - 8.14.4-8
 - sasl2 config moved from {_libdir}/sasl2 to {_sysconfdir}/sasl2
 
