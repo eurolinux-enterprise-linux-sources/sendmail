@@ -1,0 +1,20 @@
+diff --git a/sendmail/main.c b/sendmail/main.c
+index 021262c..7769148 100644
+--- a/sendmail/main.c
++++ b/sendmail/main.c
+@@ -2620,13 +2620,13 @@ main(argc, argv, envp)
+ #if NETINET
+ 		  case AF_INET:
+ 			(void) sm_snprintf(pbuf, sizeof(pbuf), "%d",
+-					   RealHostAddr.sin.sin_port);
++					   ntohs(RealHostAddr.sin.sin_port));
+ 			break;
+ #endif /* NETINET */
+ #if NETINET6
+ 		  case AF_INET6:
+ 			(void) sm_snprintf(pbuf, sizeof(pbuf), "%d",
+-					   RealHostAddr.sin6.sin6_port);
++					   ntohs(RealHostAddr.sin6.sin6_port));
+ 			break;
+ #endif /* NETINET6 */
+ 		  default:

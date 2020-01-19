@@ -1,0 +1,17 @@
+diff --git a/sendmail/readcf.c b/sendmail/readcf.c
+index b749e1f..140f4b0 100644
+--- a/sendmail/readcf.c
++++ b/sendmail/readcf.c
+@@ -2374,6 +2374,12 @@ static struct ssl_options
+ #ifdef SSL_OP_NO_TLSv1
+ 	{ "SSL_OP_NO_TLSv1",	SSL_OP_NO_TLSv1	},
+ #endif
++#ifdef SSL_OP_NO_TLSv1_1
++        { "SSL_OP_NO_TLSv1_1",    SSL_OP_NO_TLSv1_1 },
++#endif /* SSL_OP_NO_TLSv1_1 */
++#ifdef SSL_OP_NO_TLSv1_2
++        { "SSL_OP_NO_TLSv1_2",    SSL_OP_NO_TLSv1_2 },
++#endif /* SSL_OP_NO_TLSv1_2 */
+ #ifdef SSL_OP_PKCS1_CHECK_1
+ 	{ "SSL_OP_PKCS1_CHECK_1",	SSL_OP_PKCS1_CHECK_1	},
+ #endif

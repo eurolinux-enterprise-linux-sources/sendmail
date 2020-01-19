@@ -6,6 +6,7 @@ Wants=sm-client.service
 
 [Service]
 Type=forking
+StartLimitInterval=0
 PIDFile=/run/sendmail.pid
 Environment=SENDMAIL_OPTS=-q1h
 EnvironmentFile=-/etc/sysconfig/sendmail

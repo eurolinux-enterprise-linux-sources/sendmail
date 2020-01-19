@@ -6,6 +6,7 @@ BindTo=sendmail.service
 
 [Service]
 Type=forking
+StartLimitInterval=0
 PIDFile=/run/sm-client.pid
 Environment=SENDMAIL_OPTS=-q1h
 EnvironmentFile=-/etc/sysconfig/sendmail

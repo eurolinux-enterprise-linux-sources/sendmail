@@ -1,0 +1,88 @@
+--- sendmail-8.14.7/sendmail/conf.c.orig	2015-12-30 14:24:10.000000000 -0800
++++ sendmail-8.14.7/sendmail/conf.c	2015-12-30 14:30:32.000000000 -0800
+@@ -4234,7 +4234,18 @@ 
+ 	h = gethostbyname(name);
+ 	if (!resv6)
+ 		_res.options &= ~RES_USE_INET6;
+-	*err = h_errno;
++
++	/* the function is supposed to return only the requested family */
++	if (h != NULL && h->h_addrtype != family)
++	{
++#  if NETINET6
++		freehostent(h);
++#  endif /* NETINET6 */
++		h = NULL;
++		*err = NO_DATA;
++	}
++	else
++		*err = h_errno;
+ 	return h;
+ }
+ 
+@@ -4363,6 +4374,17 @@ 
+ 		}
+ 	}
+ #endif /* (SOLARIS > 10000 && SOLARIS < 20400) || (defined(SOLARIS) && SOLARIS < 204) || (defined(sony_news) && defined(__svr4)) */
++
++	/* the function is supposed to return only the requested family */
++	if (h != NULL && h->h_addrtype != family)
++	{
++# if NETINET6
++		freehostent(h);
++# endif /* NETINET6 */
++		h = NULL;
++		SM_SET_H_ERRNO(NO_DATA);
++	}
++
+ 	if (tTd(61, 10))
+ 	{
+ 		if (h == NULL)
+@@ -4372,13 +4394,12 @@ 
+ 			sm_dprintf("%s\n", h->h_name);
+ 			if (tTd(61, 11))
+ 			{
++				struct in_addr ia;
++				size_t i;
+ #if NETINET6
+ 				struct in6_addr ia6;
+ 				char buf6[INET6_ADDRSTRLEN];
+-#else /* NETINET6 */
+-				struct in_addr ia;
+ #endif /* NETINET6 */
+-				size_t i;
+ 
+ 				if (h->h_aliases != NULL)
+ 					for (i = 0; h->h_aliases[i] != NULL;
+@@ -4389,16 +4410,23 @@ 
+ 				{
+ 					char *addr;
+ 
++					addr = NULL;
+ #if NETINET6
+-					memmove(&ia6, h->h_addr_list[i],
+-						IN6ADDRSZ);
+-					addr = anynet_ntop(&ia6,
+-							   buf6, sizeof(buf6));
+-#else /* NETINET6 */
+-					memmove(&ia, h->h_addr_list[i],
+-						INADDRSZ);
+-					addr = (char *) inet_ntoa(ia);
++					if (h->h_addrtype == AF_INET6)
++					{
++						memmove(&ia6, h->h_addr_list[i],
++							IN6ADDRSZ);
++						addr = anynet_ntop(&ia6,
++							buf6, sizeof(buf6));
++					}
++					else
+ #endif /* NETINET6 */
++					/* "else" in #if code above */
++					{
++						memmove(&ia, h->h_addr_list[i],
++							INADDRSZ);
++						addr = (char *) inet_ntoa(ia);
++					}
+ 					if (addr != NULL)
+ 						sm_dprintf("\taddr: %s\n", addr);
+ 				}

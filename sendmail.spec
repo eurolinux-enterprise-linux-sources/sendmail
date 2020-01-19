@@ -26,7 +26,7 @@
 Summary: A widely used Mail Transport Agent (MTA)
 Name: sendmail
 Version: 8.14.7
-Release: 4%{?dist}
+Release: 5%{?dist}
 License: Sendmail
 Group: System Environment/Daemons
 URL: http://www.sendmail.org/
@@ -100,6 +100,18 @@ Patch23: sendmail-8.14.4-sasl2-in-etc.patch
 # add QoS support, patch from Philip Prindeville <philipp@fedoraproject.org>
 # upstream reserved option ID 0xe7 for testing of this new feature, #576643
 Patch25: sendmail-8.14.7-qos.patch
+# add support for EC ciphers, #1124827
+Patch26: sendmail-8.14.7-add-ec-support.patch
+# properly set {client_port} value on little endian machines,
+# patch by Kelsey Cumminngs <kgc@corp.sonic.net>
+Patch27: sendmail-8.14.7-client-port.patch
+# add support for config options disabling TLS 1.1/2
+# patch backported from upstream
+Patch28: sendmail-8.14.7-tls11-12-config-options.patch
+# fix for IPv6 enabled server to correctly send mails to servers which
+# have MX record pointing to the CNAME
+# patch backported from upstream
+Patch29: sendmail-8.14.7-ipv6-mx-cname-fix.patch
 Buildroot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: tcp_wrappers-devel
 BuildRequires: libdb-devel
@@ -221,6 +233,10 @@ cp devtools/M4/UNIX/{,shared}library.m4
 %patch22 -p1 -b .libdb5
 %patch23 -p1 -b .sasl2-in-etc
 %patch25 -p1 -b .qos
+%patch26 -p1 -b .ec-support
+%patch27 -p1 -b .client-port
+%patch28 -p1 -b .tls11-12-config-options
+%patch29 -p1 -b .ipv6-mx-cname-fix
 
 for f in RELEASE_NOTES contrib/etrn.0; do
 	iconv -f iso8859-1 -t utf8 -o ${f}{_,} &&
@@ -234,7 +250,7 @@ sed -i 's|/usr/local/bin/perl|%{_bindir}/perl|' contrib/*.pl
 cat > redhat.config.m4 << EOF
 define(\`confMAPDEF', \`-DNEWDB -DNIS -DHESIOD -DMAP_REGEX -DSOCKETMAP -DNAMED_BIND=1')
 define(\`confOPTIMIZE', \`\`\`\`${RPM_OPT_FLAGS}'''')
-define(\`confENVDEF', \`-I%{_includedir}/libdb -I/usr/kerberos/include -Wall -DXDEBUG=0 -DTCPWRAPPERS -DNETINET6 -DHES_GETMAILHOST -DUSE_VENDOR_CF_PATH=1 -D_FFR_TLS_1 -D_FFR_LINUX_MHNL -D_FFR_QOS')
+define(\`confENVDEF', \`-I%{_includedir}/libdb -I/usr/kerberos/include -Wall -DXDEBUG=0 -DTCPWRAPPERS -DNETINET6 -DHES_GETMAILHOST -DUSE_VENDOR_CF_PATH=1 -D_FFR_TLS_1 -D_FFR_LINUX_MHNL -D_FFR_QOS -D_FFR_TLS_EC')
 define(\`confLIBDIRS', \`-L/usr/kerberos/%{_lib}')
 define(\`confLIBS', \`-lnsl -lwrap -lhesiod -lcrypt -ldb -lresolv %{?relro:%{relro}}')
 define(\`confMANOWN', \`root')
@@ -297,7 +313,7 @@ APPENDDEF(\`confLIBS', \`-lldap -llber -lssl -lcrypto')dnl
 EOF
 %endif
 
-DIRS="libsmutil sendmail mailstats rmail praliases smrsh makemap"
+DIRS="libsmutil sendmail mailstats rmail praliases smrsh makemap editmap"
 
 %if "%{with_milter}" == "yes"
 DIRS="libmilter $DIRS"
@@ -359,6 +375,7 @@ Make force-install -C $OBJDIR/rmail
 Make install -C $OBJDIR/praliases
 Make install -C $OBJDIR/smrsh
 Make install -C $OBJDIR/makemap
+Make install -C $OBJDIR/editmap
 
 # replace absolute with relative symlinks
 ln -sf ../sbin/makemap %{buildroot}%{_bindir}/makemap
@@ -429,6 +446,8 @@ done
 
 touch %{buildroot}%{maildir}/aliasesdb-stamp
 
+touch %{buildroot}%{spooldir}/clientmqueue/sm-client.st
+
 install -p -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/sendmail
 install -p -m 755 %{SOURCE9} %{buildroot}%{_initrddir}/sendmail
 install -p -m 755 %{SOURCE2} %{buildroot}%{_sysconfdir}/NetworkManager/dispatcher.d/10-sendmail
@@ -443,7 +462,7 @@ install -m644 %{SOURCE1} %{buildroot}%{_unitdir}
 install -m644 %{SOURCE7} %{buildroot}%{_unitdir}
 
 # fix permissions to allow debuginfo extraction and stripping
-chmod 755 %{buildroot}%{_sbindir}/{mailstats,makemap,praliases,sendmail,smrsh}
+chmod 755 %{buildroot}%{_sbindir}/{mailstats,makemap,editmap,praliases,sendmail,smrsh}
 chmod 755 %{buildroot}%{_bindir}/rmail
 
 %if "%{with_sasl2}" == "yes"
@@ -460,6 +479,10 @@ sed -i -e 's:%{maildir}/statistics:%{stdir}/statistics:' %{buildroot}%{_mandir}/
 # rename files for alternative usage
 mv %{buildroot}%{_sbindir}/sendmail %{buildroot}%{_sbindir}/sendmail.sendmail
 touch %{buildroot}%{_sbindir}/sendmail
+mv %{buildroot}%{_sbindir}/makemap %{buildroot}%{_sbindir}/makemap.sendmail
+touch %{buildroot}%{_sbindir}/makemap
+mv %{buildroot}%{_sbindir}/editmap %{buildroot}%{_sbindir}/editmap.sendmail
+touch %{buildroot}%{_sbindir}/editmap
 for i in mailq newaliases rmail; do
 	mv %{buildroot}%{_bindir}/$i %{buildroot}%{_bindir}/$i.sendmail
 	touch %{buildroot}%{_bindir}/$i
@@ -474,6 +497,10 @@ mv %{buildroot}%{_mandir}/man8/sendmail.8 %{buildroot}%{_mandir}/man8/sendmail.s
 touch %{buildroot}%{_mandir}/man8/sendmail.8
 mv %{buildroot}%{_mandir}/man8/rmail.8 %{buildroot}%{_mandir}/man8/rmail.sendmail.8
 touch %{buildroot}%{_mandir}/man8/rmail.8
+mv %{buildroot}%{_mandir}/man8/makemap.8 %{buildroot}%{_mandir}/man8/makemap.sendmail.8
+touch %{buildroot}%{_mandir}/man8/makemap.8
+mv %{buildroot}%{_mandir}/man8/editmap.8 %{buildroot}%{_mandir}/man8/editmap.sendmail.8
+touch %{buildroot}%{_mandir}/man8/editmap.8
 touch %{buildroot}/usr/lib/sendmail
 touch %{buildroot}%{_sysconfdir}/pam.d/smtp
 
@@ -497,6 +524,11 @@ getent group smmsp >/dev/null || \
 getent passwd smmsp >/dev/null || \
   %{_sbindir}/useradd -u 51 -g smmsp -d %{spooldir}/mqueue -r \
   -s %{smshell} smmsp >/dev/null 2>&1
+
+# hack to turn sbin/makemap and man8/makemap.8.gz into alternatives symlink
+[ -h %{_sbindir}/makemap ] || rm -f %{_sbindir}/makemap || :
+[ -h %{_mandir}/man8/makemap.8.gz ] || rm -f %{_mandir}/man8/makemap.8.gz || :
+
 exit 0
 
 %postun
@@ -514,6 +546,8 @@ exit 0
 
 # Set up the alternatives files for MTAs.
 %{_sbindir}/alternatives --install %{_sbindir}/sendmail mta %{_sbindir}/sendmail.sendmail 90 \
+	--slave %{_sbindir}/makemap mta-makemap %{_sbindir}/makemap.sendmail \
+	--slave %{_sbindir}/editmap mta-editmap %{_sbindir}/editmap.sendmail \
 	--slave %{_bindir}/mailq mta-mailq %{_bindir}/mailq.sendmail \
 	--slave %{_bindir}/newaliases mta-newaliases %{_bindir}/newaliases.sendmail \
 	--slave %{_bindir}/rmail mta-rmail %{_bindir}/rmail.sendmail \
@@ -524,6 +558,8 @@ exit 0
 	--slave %{_mandir}/man1/newaliases.1.gz mta-newaliasesman %{_mandir}/man1/newaliases.sendmail.1.gz \
 	--slave %{_mandir}/man5/aliases.5.gz mta-aliasesman %{_mandir}/man5/aliases.sendmail.5.gz \
 	--slave %{_mandir}/man8/rmail.8.gz mta-rmailman %{_mandir}/man8/rmail.sendmail.8.gz \
+	--slave %{_mandir}/man8/makemap.8.gz mta-makemapman %{_mandir}/man8/makemap.sendmail.8.gz \
+	--slave %{_mandir}/man8/editmap.8.gz mta-editmapman %{_mandir}/man8/editmap.sendmail.8.gz \
 	--initscript sendmail > /dev/null 2>&1
 
 # Rebuild maps.
@@ -541,6 +577,14 @@ exit 0
   %{_libdir}/sasl2/Sendmail.conf ] && mv -f %{_libdir}/sasl2/Sendmail.conf \
   %{_sysconfdir}/sasl2 2>/dev/null || :
 %endif
+
+# Create sm-client.st if it doesn't exist
+if [ ! -f %{spooldir}/clientmqueue/sm-client.st ]; then
+	touch %{spooldir}/clientmqueue/sm-client.st
+	chown smmsp:smmsp %{spooldir}/clientmqueue/sm-client.st
+	chmod 0660 %{spooldir}/clientmqueue/sm-client.st
+fi
+
 exit 0
 
 %preun
@@ -593,7 +637,8 @@ fi
 %{_bindir}/makemap
 %{_bindir}/purgestat
 %{_sbindir}/mailstats
-%{_sbindir}/makemap
+%{_sbindir}/makemap.sendmail
+%{_sbindir}/editmap.sendmail
 %{_sbindir}/praliases
 %attr(2755,root,smmsp) %{_sbindir}/sendmail.sendmail
 %{_bindir}/rmail.sendmail
@@ -605,7 +650,8 @@ fi
 %{_mandir}/man8/rmail.sendmail.8.gz
 %{_mandir}/man8/praliases.8.gz
 %{_mandir}/man8/mailstats.8.gz
-%{_mandir}/man8/makemap.8.gz
+%{_mandir}/man8/makemap.sendmail.8.gz
+%{_mandir}/man8/editmap.sendmail.8.gz
 %{_mandir}/man8/sendmail.sendmail.8.gz
 %{_mandir}/man8/smrsh.8.gz
 %{_mandir}/man8/hoststat.8.gz
@@ -616,6 +662,8 @@ fi
 
 # dummy attributes for rpmlint
 %ghost %attr(0755,-,-) %{_sbindir}/sendmail
+%ghost %attr(0755,-,-) %{_sbindir}/makemap
+%ghost %attr(0755,-,-) %{_sbindir}/editmap
 %ghost %attr(0755,-,-) %{_bindir}/mailq
 %ghost %attr(0755,-,-) %{_bindir}/newaliases
 %ghost %attr(0755,-,-) %{_bindir}/rmail
@@ -627,6 +675,8 @@ fi
 %ghost %{_mandir}/man1/newaliases.1.gz
 %ghost %{_mandir}/man5/aliases.5.gz
 %ghost %{_mandir}/man8/rmail.8.gz
+%ghost %{_mandir}/man8/makemap.8.gz
+%ghost %{_mandir}/man8/editmap.8.gz
 
 %dir %{stdir}
 %dir %{_sysconfdir}/smrsh
@@ -654,6 +704,8 @@ fi
 %ghost %{maildir}/access.db
 %ghost %{maildir}/domaintable.db
 %ghost %{maildir}/mailertable.db
+
+%ghost %{spooldir}/clientmqueue/sm-client.st
 
 %{_unitdir}/sendmail.service
 %{_unitdir}/sm-client.service
@@ -709,6 +761,32 @@ fi
 %{_initrddir}/sendmail
 
 %changelog
+* Thu Mar 23 2017 Jaroslav Škarvada <jskarvad@redhat.com> - 8.14.7-5
+- Explicitly enabled sm-client statistics
+  Resolves: rhbz#890585
+- Enable ECDHE support
+  Resolves: rhbz#1124827
+- Properly set {client_port} value on little endian machines,
+  patch by Kelsey Cumminngs <kgc@corp.sonic.net>
+  Resolves: rhbz#1210914
+- Added makemap and its manual page into alternatives
+  Resolves: rhbz#1225891
+- Modified nm-dispatcher script to asynchronously restart sendmail and
+  not block the connection activation
+  Resolves: rhbz#1237070
+- Added config options allowing disablement of TLS 1.1/2
+  Resolves: rhbz#1281476
+- Fixed problem with e-mails not sending from IPv6 enabled server
+  to servers with MX record pointing to CNAME
+  Resolves: rhbz#1294870
+- Added editmap
+  Resolves: rhbz#1342393
+- Removed systemd limit for sendmail restarts to workaround failure due to
+  rapid restarts caused by NetworkManager dispatcher script
+  Resolves: rhbz#1395102
+- Fixed op.pdf
+  Resolves: rhbz#1401070
+
 * Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 8.14.7-4
 - Mass rebuild 2014-01-24
 

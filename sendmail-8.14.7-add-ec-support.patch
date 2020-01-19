@@ -1,0 +1,32 @@
+diff --git a/sendmail/tls.c b/sendmail/tls.c
+index 60d408e..72da987 100644
+--- a/sendmail/tls.c
++++ b/sendmail/tls.c
+@@ -970,6 +970,9 @@ inittls(ctx, req, options, srv, certfile, keyfile, cacertpath, cacertfile, dhpar
+ 	/* Diffie-Hellman initialization */
+ 	if (bitset(TLS_I_TRY_DH, req))
+ 	{
++#if _FFR_TLS_EC
++		EC_KEY *ecdh;
++#endif /* _FFR_TLS_EC */
+ 		if (bitset(TLS_S_DHPAR_OK, status))
+ 		{
+ 			BIO *bio;
+@@ -1044,6 +1047,17 @@ inittls(ctx, req, options, srv, certfile, keyfile, cacertpath, cacertfile, dhpar
+ 					  who, 8 * DH_size(dh), *dhparam);
+ 			DH_free(dh);
+ 		}
++
++#if _FFR_TLS_EC
++		ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
++		if (ecdh != NULL)
++		{
++			SSL_CTX_set_options(*ctx, SSL_OP_SINGLE_ECDH_USE);
++			SSL_CTX_set_tmp_ecdh(*ctx, ecdh);
++			EC_KEY_free(ecdh);
++		}
++#endif /* _FFR_TLS_EC */
++
+ 	}
+ # endif /* !NO_DH */
+ 
