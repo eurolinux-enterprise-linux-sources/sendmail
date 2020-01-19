@@ -13,6 +13,9 @@
 
 %global sysv2systemdnvr 8.14.5-3
 
+# Build with -O3 on ppc64 (rhbz#1051077)
+%global _performance_build 1
+
 # hardened build if not overrided
 %{!?_hardened_build:%global _hardened_build 1}
 
@@ -23,7 +26,7 @@
 Summary: A widely used Mail Transport Agent (MTA)
 Name: sendmail
 Version: 8.14.7
-Release: 1%{?dist}
+Release: 4%{?dist}
 License: Sendmail
 Group: System Environment/Daemons
 URL: http://www.sendmail.org/
@@ -706,6 +709,16 @@ fi
 %{_initrddir}/sendmail
 
 %changelog
+* Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 8.14.7-4
+- Mass rebuild 2014-01-24
+
+* Mon Jan 13 2014 Jaroslav Škarvada <jskarvad@redhat.com> - 8.14.7-3
+- Build with -O3 on ppc64
+  Resolves: rhbz#1051077
+
+* Fri Dec 27 2013 Daniel Mach <dmach@redhat.com> - 8.14.7-2
+- Mass rebuild 2013-12-27
+
 * Sun Apr 21 2013 Robert Scheck <robert@fedoraproject.org> - 8.14.7-1
 - Upgrade to 8.14.7
 
